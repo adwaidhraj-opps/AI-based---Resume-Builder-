@@ -67,7 +67,7 @@ import Resume from "../models/Resume.js";
 
         // return success message 
 
-        const token = generateToken(newUser._id )
+        const token = generateToken(user._id )
         user.password = undefined;
 
         return res.status(200).json({message : 'Login successful', token, user})
@@ -89,7 +89,7 @@ import Resume from "../models/Resume.js";
 
         //check if user exists
 
-        const user = await User.findById(userId._id)
+        const user = await User.findById(userId)
 
         if(!user){
             return res.status(400).json({message: 'user not found'})

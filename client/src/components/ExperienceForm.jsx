@@ -1,7 +1,13 @@
-import { Briefcase, PackagePlus, Plus, Sparkle, Trash2 } from 'lucide-react'
-import React from 'react'
+import { Briefcase, Loader2, PackagePlus, Plus, Sparkle, Trash2 } from 'lucide-react'
+import React, { useState } from 'react';
+import { useSelector } from 'react-redux';
+import api from '../configs/api';
+import toast from 'react-hot-toast';
 
 const ExperienceForm = ({data, onChange}) => {
+
+    const {token} = useSelector(state => state.auth)
+        const [generatingIndex, setGeneratingIndex] = useState(-1)
 
     const addExperience = () =>{
         const newExperience = {
@@ -24,6 +30,22 @@ const ExperienceForm = ({data, onChange}) => {
         const updated = [...data];
         updated[index] = {...updated[index], [field] : value}
         onChange(updated)
+    }
+
+    const generateDescription = async (index) => {
+            setGeneratingIndex(index)
+            const experience = data[index]
+            const prompt = `enhance this job description ${experience.description} for the position of ${experience.position} at ${experience.company}`
+           
+            try{
+            const result = await api.post('/api/ai/enhance-job-desc', {userContent : prompt}, {headers: {Authorization: `Bearer ${token}`}})
+
+            updateExperience(index, "description", result.data.enhancedContent)
+        } catch (error){
+            toast.error(error.message)
+        }finally {
+            setGeneratingIndex(-1)
+        }
     }
   return (
     <div className='space-y-6'>
@@ -60,15 +82,20 @@ const ExperienceForm = ({data, onChange}) => {
                                 <input value={experience.end_date || ""} onChange={(e)=>updateExperience(index, "end_date" , e.target.value)} type="month" disabled={experience.is_current} className='px-3 py-2 text-sm rounded-lg disabled:bg-gray-100' />
                             
                             </div>
-                            <label className='flex item-center gap-2'> 
+                            <label className='flex items-center gap-2'> 
                                 <input type="checkbox" checked={experience.is_current || false} onChange={(e)=>{updateExperience(index,"is_current", e.target.checked ? true : false ); }} className='rounded border-gray-300 text-blue-600 focus:ring-blue-500'/>
                                 <span className='text-sm text-gray-700'>Currently Working Here</span>
                             </label>
 
                             <div className='space-y-2'>
                                 <label className='text-sm font-medium text-gray-700'>Job Description</label>
-                                <button className='flex items-center gap-1 px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded hover:bg-purple-200 transition-colors disabled:opacity-50'>
-                                    <Sparkle className='w-3 h-3'/>
+                                <button onClick={()=>generateDescription(index)} disabled={generatingIndex === index || !experience.position || !experience.company} className='flex items-center gap-1 px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded hover:bg-purple-200 transition-colors disabled:opacity-50'>
+                                    {generatingIndex === index ? (
+                                        <Loader2 className='w-3 h-3 animate-spin'/>
+                                    ):(
+                                        <Sparkle className='w-3 h-3'/>
+                                    )}
+                                    
                                     Enhance with AI
                                 </button>
                             </div>

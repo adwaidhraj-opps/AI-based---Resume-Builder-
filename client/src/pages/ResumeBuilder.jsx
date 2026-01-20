@@ -12,10 +12,14 @@ import ExperienceForm from '../components/ExperienceForm'
 import EducationForm from '../components/EducationForm'
 import ProjectsForm from '../components/ProjectsForm'
 import SkillsForm from '../components/SkillsForm'
+import { useSelector } from 'react-redux'
+import api from '../configs/api'
+import toast from 'react-hot-toast';
 
 const ResumeBuilder = () => {
 
   const { resumeId } = useParams()
+  const {token} = useSelector(state => state.auth)
 
   const [resumeData, setresumeData] =  useState({
     _id : '',
@@ -32,12 +36,17 @@ const ResumeBuilder = () => {
   })
 
     const loadExistingResume = async () => {
-      const resume = dummyResumeData.find(resume =>resume._id === resumeId)
-      if(resume){
-        setresumeData(resume)
-        document.title = resume.title
+      try{
+        const {data} = await api.get('/api/resumes/get/' + resumeId, {headers: {Authorization: `Bearer ${token}`}})
+        if(data.resume){
+          setresumeData(data.resume)
+          document.title = data.resume.title;
+        }
+      }catch (error){
+        console.log(error.message)
       }
-    }
+      }
+    
 
     const [activeSectionIndex, setActiveSectionIndex] = useState(0)
     const [removeBackground, setremoveBackground] = useState(false);
@@ -57,14 +66,26 @@ const ResumeBuilder = () => {
     },[])
 
     const changeResumeVisibility = async  () => {
-      setresumeData({...resumeData, public : !resumeData.public})
+      try{
+        const formData = new FormData()
+        formData.append("resumeId", resumeId)
+        formData.append("resumeData", JSON.stringify({public : !resumeData.public}))
+        
+        const {data} = await api.put('/api/resumes/update/', formData , {headers: {Authorization: `Bearer ${token}`}})        
+        
+        setresumeData({...resumeData, public : !resumeData.public})
+        toast.success(data.message)
+      } catch (error){
+        console.error("Error saving resume:", error)
+      }
+
     }
 
     const handleShare = () =>{
       const frontendUrl = window.location.href.split('/app/')[0];
       const resumeUrl = frontendUrl + '/view/' + resumeId;
 
-      if(Navigation.share){
+      if(navigator.share){
         navigator.share({url: resumeUrl, text: "My Resume", })
       }else{
         alert('Share not supported on this browser')
@@ -73,6 +94,29 @@ const ResumeBuilder = () => {
 
     const downloadResume = ()=>{
       window.print();
+    }
+
+    const saveResume = async () =>{
+      try {
+        let updatedResumeData = structuredClone(resumeData)
+        
+        if(typeof resumeData.personal_info.image === 'object'){
+          delete updatedResumeData.personal_info.image
+        }
+        const formData = new FormData();
+        formData.append("resumeId", resumeId)
+        formData.append("resumeData", JSON.stringify(updatedResumeData))
+        removeBackground && formData.append("removeBackground", "yes");
+        typeof resumeData.personal_info.image === 'object' && formData.append("image", resumeData.personal_info.image)
+        const {data} = await api.put('/api/resumes/update', formData, {headers: {Authorization: `Bearer ${token}`}})
+        
+        setresumeData(data.resume)
+        return data.message || "Saved successfully!";
+      
+      } catch (error) {
+        console.error("Error saving resume :", error)
+        throw new Error(error?.response?.data?.message || "Failed to save");
+      }
     }
 
     return (
@@ -136,7 +180,7 @@ const ResumeBuilder = () => {
           )}
 
         </div>
-        <button className='bg-gradient-to-br from-green-100 to-green-200 ring-green-300 text-green-600 ring hover:ring-green-400 transition-all rounded-md px-6 py-2 mt-6 text-sm'> 
+        <button onClick={() => {toast.promise(saveResume(), {loading : 'Saving...', success: (data) => <b>{data}</b>, error: (err) => <b>{err.message}</b> })}} className='bg-gradient-to-br from-green-100 to-green-200 ring-green-300 text-green-600 ring hover:ring-green-400 transition-all rounded-md px-6 py-2 mt-6 text-sm'> 
           Save Changes
         </button>
         </div>
